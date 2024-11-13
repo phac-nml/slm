@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+# scontrol -o show nodes | rev | awk '{ print $47, $22, $21, $23}' | rev
+
+memoryinuse(){
+	nodename_field="NodeName"
+	allocmem="AllocMem"
+	realmem="RealMemory"	
+	freemem="FreeMem"
+	na_field="N/A"
+	declare -Ar mem_values=([$allocmem]=1 [$realmem]=1)
+	{
+		IFS=$'\n'
+		echo "$nodename_field ${allocmem}(GB) $realmem(GB) $freemem(GB) PercentAllocated"
+		for i in $(scontrol -o show nodes)
+		do
+			declare -A sctrl_stats
+			IFS=' '
+			for f in $i
+			do
+				key=${f/=*/}
+				value=${f/*=/}
+				if [[ mem_values["$key"] -ne 1 ]] 
+				then
+					sctrl_stats["$key"]="$value"
+					continue
+				fi
+
+				if [[ "$value" =~ ^-?[0-9]+$ ]]
+				then
+					sctrl_stats["$key"]=$(( $value / 1024))
+				else
+					sctrl_stats["$key"]=$na_field
+				fi
+			done
+			name=${sctrl_stats[$nodename_field]}
+			allocmem_gb=${sctrl_stats[$allocmem]}
+			realmem_gb=${sctrl_stats[$realmem]}
+			freemem_gb=$na_field
+			percent_utilized=$na_field
+			if [[ "$allocmem_gb" != "$na_field" ]] && [[ "$realmem_gb" != "$na_field" ]]
+			then
+				freemem_gb=$(( $realmem_gb - $allocmem_gb  ))
+				percent_utilized=$( bc -l <<< "scale=1; $allocmem_gb / $realmem_gb * 100" )
+			fi
+			echo "$name ${allocmem_gb} ${realmem_gb} ${freemem_gb} ${percent_utilized}%"
+			IFS=$'\n'
+		done } | column -t
+		
+}
+
+
+memoryinuse
