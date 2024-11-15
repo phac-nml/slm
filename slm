@@ -7,11 +7,14 @@ memoryinuse(){
 	allocmem="AllocMem"
 	realmem="RealMemory"	
 	freemem="FreeMem"
+	cpu_alloc="CPUAlloc"
+	cpu_total="CPUTot"
 	na_field="N/A"
 	declare -Ar mem_values=([$allocmem]=1 [$realmem]=1)
+	declare -Ar cpu_values=([$cpu_alloc]=1 [$cpu_total]=1)
 	{
 		IFS=$'\n'
-		echo "$nodename_field ${allocmem}(GB) $realmem(GB) $freemem(GB) PercentAllocated"
+		echo "$nodename_field ${allocmem}(GB) $realmem(GB) $freemem(GB) PercentMemAllocated ${cpu_alloc} ${cpu_total} PercentCPUAllocated"
 		for i in $(scontrol -o show nodes)
 		do
 			declare -A sctrl_stats
@@ -20,30 +23,52 @@ memoryinuse(){
 			do
 				key=${f/=*/}
 				value=${f/*=/}
-				if [[ mem_values["$key"] -ne 1 ]] 
+
+				if [[ $((mem_values["$key"])) -eq 1 ]]
 				then
-					sctrl_stats["$key"]="$value"
+					if [[ "$value" =~ ^-?[0-9]+$ ]]
+					then
+						sctrl_stats["$key"]=$(( value / 1024))
+					else
+						sctrl_stats["$key"]=$na_field
+					fi
+					continue
+				fi
+				
+				if [[ $((cpu_values["$key"])) -eq 1 ]]
+				then
+					if [[ "$value" =~ ^-?[0-9]+$ ]]
+					then
+						sctrl_stats["$key"]=$value
+					else
+						sctrl_stats["$key"]=$na_field
+					fi
 					continue
 				fi
 
-				if [[ "$value" =~ ^-?[0-9]+$ ]]
-				then
-					sctrl_stats["$key"]=$(( $value / 1024))
-				else
-					sctrl_stats["$key"]=$na_field
-				fi
+				sctrl_stats["$key"]=$value
+	
 			done
-			name=${sctrl_stats[$nodename_field]}
-			allocmem_gb=${sctrl_stats[$allocmem]}
-			realmem_gb=${sctrl_stats[$realmem]}
+			name=${sctrl_stats["$nodename_field"]}
+			allocmem_gb=${sctrl_stats["$allocmem"]}
+			realmem_gb=${sctrl_stats["$realmem"]}
 			freemem_gb=$na_field
-			percent_utilized=$na_field
+			mem_percent_utilized=$na_field
+			cpu_percent_utilized=$na_field
+			total_cpu=${sctrl_stats["$cpu_total"]}
+			alloc_cpu=${sctrl_stats["$cpu_alloc"]}
 			if [[ "$allocmem_gb" != "$na_field" ]] && [[ "$realmem_gb" != "$na_field" ]]
 			then
-				freemem_gb=$(( $realmem_gb - $allocmem_gb  ))
-				percent_utilized=$( bc -l <<< "scale=1; $allocmem_gb / $realmem_gb * 100" )
+				freemem_gb=$(( realmem_gb - allocmem_gb  ))
+				mem_percent_utilized=$( bc -l <<< "scale=2; $allocmem_gb / $realmem_gb * 100" )
 			fi
-			echo "$name ${allocmem_gb} ${realmem_gb} ${freemem_gb} ${percent_utilized}%"
+
+			if [[ "$alloc_cpu" != "$na_field" ]] && [[ "$total_cpu" != "$na_field" ]]
+			then
+				cpu_percent_utilized=$( bc -l <<< "scale=2; $alloc_cpu / $total_cpu * 100" )
+			fi
+
+			echo "$name ${allocmem_gb} ${realmem_gb} ${freemem_gb} ${mem_percent_utilized}% ${alloc_cpu} ${total_cpu} ${cpu_percent_utilized}%"
 			IFS=$'\n'
 		done } | column -t
 		
