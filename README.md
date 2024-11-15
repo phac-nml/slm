@@ -1,6 +1,6 @@
 # SLM
 
-List the current memory allocated across different slurm nodes.
+List the current memory and CPUs allocated across different slurm nodes.
 
 
 ## Installation
