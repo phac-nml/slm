@@ -67,7 +67,7 @@ memoryinuse(){
 			if [[ "$alloc_cpu" != "$na_field" ]] && [[ "$total_cpu" != "$na_field" ]]
 			then
 				cpu_percent_utilized=$( bc -l <<< "scale=2; $alloc_cpu / $total_cpu * 100" )
-				cpu_free=$(( $total_cpu - $alloc_cpu))
+				cpu_free=$(( total_cpu - alloc_cpu))
 			fi
 
 			echo "$name ${allocmem_gb} ${realmem_gb} ${freemem_gb} ${mem_percent_utilized}% ${alloc_cpu} ${total_cpu} ${cpu_free} ${cpu_percent_utilized}%"
