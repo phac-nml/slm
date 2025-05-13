@@ -14,7 +14,7 @@ memoryinuse(){
 	declare -Ar cpu_values=([$cpu_alloc]=1 [$cpu_total]=1)
 	{
 		IFS=$'\n'
-		echo "$nodename_field ${allocmem}(GB) $realmem(GB) $freemem(GB) PercentMemAllocated ${cpu_alloc} ${cpu_total} PercentCPUAllocated"
+		echo "$nodename_field ${allocmem}(GB) $realmem(GB) $freemem(GB) PercentMemAllocated ${cpu_alloc} ${cpu_total} CPUFree PercentCPUAllocated"
 		for i in $(scontrol -o show nodes)
 		do
 			declare -A sctrl_stats
@@ -55,6 +55,7 @@ memoryinuse(){
 			freemem_gb=$na_field
 			mem_percent_utilized=$na_field
 			cpu_percent_utilized=$na_field
+			cpu_free=$na_field
 			total_cpu=${sctrl_stats["$cpu_total"]}
 			alloc_cpu=${sctrl_stats["$cpu_alloc"]}
 			if [[ "$allocmem_gb" != "$na_field" ]] && [[ "$realmem_gb" != "$na_field" ]]
@@ -66,9 +67,10 @@ memoryinuse(){
 			if [[ "$alloc_cpu" != "$na_field" ]] && [[ "$total_cpu" != "$na_field" ]]
 			then
 				cpu_percent_utilized=$( bc -l <<< "scale=2; $alloc_cpu / $total_cpu * 100" )
+				cpu_free=$(( total_cpu - alloc_cpu))
 			fi
 
-			echo "$name ${allocmem_gb} ${realmem_gb} ${freemem_gb} ${mem_percent_utilized}% ${alloc_cpu} ${total_cpu} ${cpu_percent_utilized}%"
+			echo "$name ${allocmem_gb} ${realmem_gb} ${freemem_gb} ${mem_percent_utilized}% ${alloc_cpu} ${total_cpu} ${cpu_free} ${cpu_percent_utilized}%"
 			IFS=$'\n'
 		done } | column -t
 		
